@@ -173,11 +173,15 @@ async function deleteMessages(authToken, authorId, guildId, channelId, minId, ma
                 let resp;
                 try {
                     const s = Date.now();
-                    const API_PATCH_URL = `https://discord.com/api/v6/channels/${message.channel_id}/messages/${message.id}`;
+                    const API_PATCH_URL = `https://discord.com/api/v9/channels/${message.channel_id}/messages/${message.id}`;
                     resp = await fetch(API_PATCH_URL, {
-                        headers,
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            ...headers
+                        },
                         method: 'PATCH',
-                        data: {content: loremIpsum()}
+                        body: JSON.stringify({content: loremIpsum().substring(0, 1900)}),
                     });
                     lastPing = (Date.now() - s);
                     avgPing = (avgPing * 0.9) + (lastPing * 0.1);
@@ -198,7 +202,7 @@ async function deleteMessages(authToken, authorId, guildId, channelId, minId, ma
                         printDelayStats();
                         log.verb(`Cooling down for ${w * 2}ms before retrying...`);
                         await wait(w * 2);
-                        return end();
+                        return;
                     } else {
                         log.error(`Error deleting message, API responded with status ${resp.status}!`, await resp.json());
                         log.verb('Related object:', redact(JSON.stringify(message)));
@@ -213,10 +217,9 @@ async function deleteMessages(authToken, authorId, guildId, channelId, minId, ma
                     message.attachments.length ? redact(JSON.stringify(message.attachments)) : '');
                 if (onProgress) onProgress(delCount + 1, grandTotal);
 
-                let resp;
                 try {
                     const s = Date.now();
-                    const API_DELETE_URL = `https://discord.com/api/v6/channels/${message.channel_id}/messages/${message.id}`;
+                    const API_DELETE_URL = `https://discord.com/api/v9/channels/${message.channel_id}/messages/${message.id}`;
                     resp = await fetch(API_DELETE_URL, {
                         headers,
                         method: 'DELETE'
@@ -241,7 +244,7 @@ async function deleteMessages(authToken, authorId, guildId, channelId, minId, ma
                         printDelayStats();
                         log.verb(`Cooling down for ${w * 2}ms before retrying...`);
                         await wait(w * 2);
-                        return end();
+                        return;
                     } else {
                         log.error(`Error deleting message, API responded with status ${resp.status}!`, await resp.json());
                         log.verb('Related object:', redact(JSON.stringify(message)));
