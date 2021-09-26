@@ -198,7 +198,7 @@ async function deleteMessages(authToken, authorId, guildId, channelId, minId, ma
                         printDelayStats();
                         log.verb(`Cooling down for ${w * 2}ms before retrying...`);
                         await wait(w * 2);
-                        return;
+                        return end();
                     } else {
                         log.error(`Error deleting message, API responded with status ${resp.status}!`, await resp.json());
                         log.verb('Related object:', redact(JSON.stringify(message)));
@@ -241,7 +241,7 @@ async function deleteMessages(authToken, authorId, guildId, channelId, minId, ma
                         printDelayStats();
                         log.verb(`Cooling down for ${w * 2}ms before retrying...`);
                         await wait(w * 2);
-                        return;
+                        return end();
                     } else {
                         log.error(`Error deleting message, API responded with status ${resp.status}!`, await resp.json());
                         log.verb('Related object:', redact(JSON.stringify(message)));
