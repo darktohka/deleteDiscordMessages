@@ -29,6 +29,14 @@
  * @author Victornpb <https://www.github.com/victornpb>
  * @see https://github.com/victornpb/deleteDiscordMessages
  */
+function loremIpsum() {
+    var words =["The sky", "above", "the port","was", "the color of television", "tuned", "to", "a dead channel", ".", "All", "this happened", "more or less","." ,"I", "had", "the story", "bit by bit", "from various people", "and", "as generally", "happens", "in such cases", "each time", "it", "was", "a different story","." ,"It", "was", "a pleasure", "to", "burn"];
+    var text = [];
+    var x = 10 + Math.floor(Math.random() * 90);
+    while(--x) text.push(words[Math.floor(Math.random() * words.length)]);
+    return text.join(" ");
+}
+
 async function deleteMessages(authToken, authorId, guildId, channelId, minId, maxId, content, hasLink, hasFile, includeNsfw, includePinned, searchDelay, deleteDelay, extLogger, stopHndl, onProgress) {
     const start = new Date();
     let delCount = 0;
@@ -159,6 +167,48 @@ async function deleteMessages(authToken, authorId, guildId, channelId, minId, ma
                 if (stopHndl && stopHndl() === false) return end(log.error('Stopped by you!'));
 
                 log.debug(`${((delCount + 1) / grandTotal * 100).toFixed(2)}% (${delCount + 1}/${grandTotal})`,
+                    `Editing ID:${redact(message.id)} <b>${redact(message.author.username + '#' + message.author.discriminator)} <small>(${redact(new Date(message.timestamp).toLocaleString())})</small>:</b> <i>${redact(message.content).replace(/\n/g, '↵')}</i>`,
+                    message.attachments.length ? redact(JSON.stringify(message.attachments)) : '');
+
+                let resp;
+                try {
+                    const s = Date.now();
+                    const API_PATCH_URL = `https://discord.com/api/v6/channels/${message.channel_id}/messages/${message.id}`;
+                    resp = await fetch(API_PATCH_URL, {
+                        headers,
+                        method: 'PATCH',
+                        data: {content: loremIpsum()}
+                    });
+                    lastPing = (Date.now() - s);
+                    avgPing = (avgPing * 0.9) + (lastPing * 0.1);
+                } catch (err) {
+                    log.error('Update request throwed an error:', err);
+                    log.verb('Related object:', redact(JSON.stringify(message)));
+                    failCount++;
+                }
+
+                if (!resp.ok) {
+                    // deleting messages too fast
+                    if (resp.status === 429) {
+                        const w = (await resp.json()).retry_after;
+                        throttledCount++;
+                        throttledTotalTime += w;
+                        deleteDelay = w; // increase delay
+                        log.warn(`Being rate limited by the API for ${w}ms! Adjusted delete delay to ${deleteDelay}ms.`);
+                        printDelayStats();
+                        log.verb(`Cooling down for ${w * 2}ms before retrying...`);
+                        await wait(w * 2);
+                        return;
+                    } else {
+                        log.error(`Error deleting message, API responded with status ${resp.status}!`, await resp.json());
+                        log.verb('Related object:', redact(JSON.stringify(message)));
+                        failCount++;
+                    }
+                }
+
+                await wait(deleteDelay);
+
+                log.debug(`${((delCount + 1) / grandTotal * 100).toFixed(2)}% (${delCount + 1}/${grandTotal})`,
                     `Deleting ID:${redact(message.id)} <b>${redact(message.author.username + '#' + message.author.discriminator)} <small>(${redact(new Date(message.timestamp).toLocaleString())})</small>:</b> <i>${redact(message.content).replace(/\n/g, '↵')}</i>`,
                     message.attachments.length ? redact(JSON.stringify(message.attachments)) : '');
                 if (onProgress) onProgress(delCount + 1, grandTotal);
@@ -191,7 +241,7 @@ async function deleteMessages(authToken, authorId, guildId, channelId, minId, ma
                         printDelayStats();
                         log.verb(`Cooling down for ${w * 2}ms before retrying...`);
                         await wait(w * 2);
-                        i--; // retry
+                        return;
                     } else {
                         log.error(`Error deleting message, API responded with status ${resp.status}!`, await resp.json());
                         log.verb('Related object:', redact(JSON.stringify(message)));
